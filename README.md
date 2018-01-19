@@ -7,7 +7,7 @@
 <p>An extension of weewx to add a driver which gets data via an MQTT subscription. Also will shortly add the software from the other side of the MQTT broker. Main part of that is an RF24Mesh process.
 </p>
 
-<p>Works well with the < href='https://mosquitto.org/'>Mosquitto</a> MQTT message broker.</p>
+<p>Works well with the <a href='https://mosquitto.org/'>Mosquitto</a> MQTT message broker.</p>
 <h2>Features</h2>
 <ul>
   <li>If a message provides 0 as the timestamp or does not provide a timestamp, the driver uses the time on the weewx host.</li>
