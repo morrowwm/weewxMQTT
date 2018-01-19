@@ -23,7 +23,7 @@
 #     station_type = wxMesh
 # [wxMesh]
 #     host = localhost           # MQTT broker hostname
-#     topic = weather            # topic
+#     topic = weather/+          # topic
 #     driver = user.wxMesh
 #
 # If the variables in the file have names different from those in weewx, then
@@ -40,6 +40,7 @@
 from __future__ import with_statement
 import syslog
 import time
+import Queue
 import paho.mqtt.client as mqtt
 import weewx.drivers
 
@@ -73,61 +74,87 @@ class wxMesh(weewx.drivers.AbstractDevice):
     """weewx driver that reads data from a file"""
 
     def __init__(self, **stn_dict):
-        # where to find the data file
-        self.host = stn_dict.get('host', 'localhost')
-        self.topic = stn_dict.get('topic', 'weather')
-        # how often to poll the weather data file, seconds
-        self.poll_interval = float(stn_dict.get('poll_interval', 5.0))
-        # mapping from variable names to weewx names
-        self.label_map = stn_dict.get('label_map', {})
+      # where to find the data file
+      self.host = stn_dict.get('host', 'localhost')
+      self.topic = stn_dict.get('topic', 'weather')
+      self.username = stn_dict.get('username', 'no default')
+      self.password = stn_dict.get('password', 'no default')
+      self.client_id = stn_dict.get('client', 'wxclient') # MQTT client id - adjust as desired
+      
+      # how often to poll the weather data file, seconds
+      self.poll_interval = float(stn_dict.get('poll_interval', 5.0))
+      # mapping from variable names to weewx names
+      self.label_map = stn_dict.get('label_map', {})
 
-        loginf("host is %s" % self.host)
-        loginf("topic is %s" % self.topic)
-        loginf("polling interval is %s" % self.poll_interval)
-        loginf('label map is %s' % self.label_map)
-        
-        self.payload = "Empty"
-        #self.payloadList = [payload]
-        self.client = mqtt.Client(client_id="XXX", protocol=mqtt.MQTTv31)
+      loginf("MQTT host is %s" % self.host)
+      loginf("MQTT topic is %s" % self.topic)
+      loginf("MQTT client is %s" % self.client_id)
+      loginf("polling interval is %s" % self.poll_interval)
+      loginf('label map is %s' % self.label_map)
+      
+      self.payload = Queue.Queue('Empty',)
+      self.connected = False
 
-	#self.client.on_connect = self.on_connect
-	self.client.on_message = self.on_message
+      self.client = mqtt.Client(client_id=self.client_id, protocol=mqtt.MQTTv31)
 
-        self.client.username_pw_set("XXX", "XXX")
-	self.client.connect(self.host, 1883, 60)
-	self.client.subscribe(self.topic, qos=1)
+      # TODO - need some reconnect on disconnect logic
+      #self.client.on_disconnect = self.on_disconnect
+      self.client.on_message = self.on_message
 
-    # The callback for when a PUBLISH message is received from the server.
+      self.client.username_pw_set(self.username, self.password)
+      self.client.connect(self.host, 1883, 60)
+      # TODO is this a good idea?
+      # while self.connected != True:
+      #    time.sleep(1)
+      #    logdbg("Connecting...\n")
+      
+      logdbg("Connected")
+      self.client.loop_start()
+      self.client.subscribe(self.topic, qos=1)
+
+    # The callback for when a PUBLISH message is received from the MQTT server.
     def on_message(self, client, userdata, msg):
-	self.payload = str(msg.payload)
-	logdbg("Got message %s" % str(msg.payload))
+      self.payload.put(msg.payload,)
+      logdbg("Added to queue of %d message %s" % (self.payload.qsize(), msg.payload))
 
-    def genLoopPackets(self):	
-        while True:
-	    self.client.loop()
-            # read whatever values we can get from the MQTT broker
-            logdbg("Working on payload : %s" % self.payload)
-	    if self.payload != "Empty" :
-		data = {}
-		row = self.payload.split(",");
-		for datum in row:
-		    (key,value)  = datum.split(":")
-		    data[key] = value
-                    if( key=="TIME" and data[key] == "0"):
-                        data[key] = str(int(time.time()))
-		    logdbg("key: "+key+" value: "+data[key])
-	    
-		# map the data into a weewx loop packet
-		_packet = {'usUnits': weewx.METRIC}
-		for vname in data:
-		    _packet[self.label_map.get(vname, vname)] = _get_as_float(data, vname)
+    def on_connect(self, client, userdata, rc):
+      if rc == 0:
+	self.connected = True
+        
+    def closePort(self):
+      self.client.disconnect()
+      self.client.loop_stop()
 
-		yield _packet
-	        self.payload = "Empty"
-	    
-	    logdbg("Sleeping for %d" % self.poll_interval)
-            time.sleep(self.poll_interval)
-        self.client.disconnect()
+    def genLoopPackets(self):
+      while True:
+	# read whatever values we can get from the MQTT broker
+	logdbg("Working on queue of %d " % self.payload.qsize())
+	while not self.payload.empty():
+	  msg = str(self.payload.get())
+	  if msg != "Empty" :
+	    logdbg("Working on queue %d payload : %s" % (self.payload.qsize(), msg))
+	    data = {}
+	    row = msg.split(",")
+	    for datum in row:
+	      (key,value)  = datum.split(":")
+	      data[key] = value
+	      if( key=="TIME" and data[key] == "0"):
+		data[key] = str(int(time.time())) # time from station is not yet reliable - replace it
+	      logdbg("key: "+key+" value: "+data[key])
+	
+	      # map the data into a weewx loop packet
+	      _packet = {'usUnits': weewx.METRIC}
+	      for vname in data:
+		  _packet[self.label_map.get(vname, vname)] = _get_as_float(data, vname)
+
+	      yield _packet
+    
+	logdbg("Sleeping for %d" % self.poll_interval)
+	time.sleep(self.poll_interval)
+
+      self.client.disconnect()
+      self.client.loop_stop()
+        
     @property
     def hardware_name(self):
         return "wxMesh"
