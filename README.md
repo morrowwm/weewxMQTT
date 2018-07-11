@@ -12,6 +12,7 @@
 <ul>
   <li>If a message provides 0 as the timestamp or does not provide a timestamp, the driver uses the time on the weewx host.</li>
   <li>Consolidates asynchronous readings from more than one device into one stream of periodic weewx records.</li>
+  <li>Queues fast arriving publications and processes them into weewx packets quickly, then sleeps.</li>
 </ul>
 
 <h2>Downloads</h2>
@@ -23,6 +24,11 @@ For current and previous releases:
 <a href='https://github.com/morrowwm/weewxMQTT'>https://github.com/morrowwm/weewxMQTT</a>
 </p>
 
+<h2>Installation</h2>
+<p>
+Install paho MQTT client using
+    sudo pip install paho-mqtt
+</p>
 <h2>Documentation and Support</h2>
 
 <p>
