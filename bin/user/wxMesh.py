@@ -92,7 +92,7 @@ class wxMesh(weewx.drivers.AbstractDevice):
       loginf("polling interval is %s" % self.poll_interval)
       loginf('label map is %s' % self.label_map)
       
-      self.payload = Queue.Queue('Empty',)
+      self.payload = Queue.Queue()
       self.connected = False
 
       self.client = mqtt.Client(client_id=self.client_id, protocol=mqtt.MQTTv31)
@@ -129,26 +129,26 @@ class wxMesh(weewx.drivers.AbstractDevice):
       while True:
 	# read whatever values we can get from the MQTT broker
 	logdbg("Queue of %d entries" % self.payload.qsize())
-	while not self.payload.empty():
-	  msg = str(self.payload.get())
-	  if msg != "Empty" :
-	    logdbg("Working on queue entry %d with payload : %s" % (self.payload.qsize(), msg))
-	    data = {}
-	    row = msg.split(",")
-	    for datum in row:
-	      (key,value)  = datum.split(":")
-	      data[key] = value
-	      if( key=="TIME" and data[key] == "0"):
-		data[key] = str(int(time.time())) # time from station is not yet reliable - replace it
-	      logdbg("key: "+key+" value: "+data[key])
-	
-	      # map the data into a weewx loop packet
-	      _packet = {'usUnits': weewx.METRIC}
-	      for vname in data:
-		  _packet[self.label_map.get(vname, vname)] = _get_as_float(data, vname)
+	logdbg("Waiting for non-empty queue")
+        while not self.payload.empty(): 
+          msg = str(self.payload.get(block=True, timeout=3)) # block until something gets queued
+	  logdbg("Working on queue of size %d with payload : %s" % (self.payload.qsize(), msg))
+	  data = {}
+	  row = msg.split(",")
+	  for datum in row:
+	    (key,value)  = datum.split(":")
+	    data[key] = value
+	    if( key=="TIME" and data[key] == "0"):
+	      data[key] = str(int(time.time())) # time from station is not yet reliable - replace it
+	    logdbg("key: "+key+" value: "+data[key])
+            
+	  # map the data into a weewx loop packet
+	  _packet = {'usUnits': weewx.METRIC}
+	  for vname in data:
+	    _packet[self.label_map.get(vname, vname)] = _get_as_float(data, vname)
 
-	      yield _packet
-    
+	  yield _packet
+
 	logdbg("Sleeping for %d" % self.poll_interval)
 	time.sleep(self.poll_interval)
 
