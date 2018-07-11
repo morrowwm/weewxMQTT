@@ -128,11 +128,11 @@ class wxMesh(weewx.drivers.AbstractDevice):
     def genLoopPackets(self):
       while True:
 	# read whatever values we can get from the MQTT broker
-	logdbg("Working on queue of %d " % self.payload.qsize())
+	logdbg("Queue of %d entries" % self.payload.qsize())
 	while not self.payload.empty():
 	  msg = str(self.payload.get())
 	  if msg != "Empty" :
-	    logdbg("Working on queue %d payload : %s" % (self.payload.qsize(), msg))
+	    logdbg("Working on queue entry %d with payload : %s" % (self.payload.qsize(), msg))
 	    data = {}
 	    row = msg.split(",")
 	    for datum in row:
