@@ -4,6 +4,7 @@
 <p><i>Open source software for your weather station</i></p>
 
 <h2>Description</h2>
+<p>This version is compatible Python3 et Weewx 4.1.x</p>
 <p>An extension of weewx to add a driver which gets data via an MQTT subscription. Also will shortly add the software from the other side of the MQTT broker. Main part of that is an RF24Mesh process.
 </p>
 
@@ -27,7 +28,7 @@ For current and previous releases:
 <h2>Installation</h2>
 <p>
 Install paho MQTT client using
-    sudo pip install paho-mqtt
+    sudo pip3 install paho-mqtt
 </p>
 <h2>Documentation and Support</h2>
 
