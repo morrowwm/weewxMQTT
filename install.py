@@ -22,7 +22,7 @@ class weewxMQTTInstaller(setup.ExtensionInstaller):
             name='weewxMQTT',
             description='A weewx driver which subscribes to MQTT topics providing weewx compatible data',
             author="Bill Morrow",
-            author_email="morrowwm@gmail.com",
+            author_email="morrowwm@yahoo.ca",
             config={
                 'wxMesh': {
                     driver = user.wxMesh
@@ -45,9 +45,9 @@ class weewxMQTTInstaller(setup.ExtensionInstaller):
                     WDIR = windDir
                     WIND = windSpeed
                  }
-
+            }
             files=[('bin/users/wxMesh.py')]
-            )
+        )
 
         print ""
         print "The following alternative languages are available:"
